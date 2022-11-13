@@ -148,6 +148,39 @@ struct as_if<std::string, void> {
   }
 };
 
+#if __cplusplus > 202002L
+template <typename T>
+struct as_if<T, Exception> {
+  explicit as_if(const Node& node_) : node(node_) {}
+  const Node& node;
+
+  std::expected<T, Exception> operator()() const noexcept {
+    if (!node.m_pNode)
+      return std::unexpected{ Exception(node.Mark(), ErrorMsg::BAD_CONVERSION) };
+
+    T t;
+    if (convert<T>::decode(node, t))
+      return t;
+    return std::unexpected{ Exception(node.Mark(), ErrorMsg::BAD_CONVERSION) };
+  }
+};
+
+template <>
+struct as_if<std::string, Exception> {
+  explicit as_if(const Node& node_) : node(node_) {}
+  const Node& node;
+
+  std::expected<std::string, Exception> operator()() const noexcept {
+    if (node.Type() == NodeType::Null)
+      return "null";
+    if (node.Type() != NodeType::Scalar)
+      return std::unexpected{ Exception(node.Mark(), ErrorMsg::BAD_CONVERSION) };
+    return node.Scalar();
+  }
+};
+
+#endif
+
 // access functions
 template <typename T>
 inline T Node::as() const {
@@ -168,13 +201,7 @@ template <typename T>
 inline std::expected<T, Exception> Node::expect() const noexcept {
   if (!m_isValid)
     return std::unexpected{ InvalidNode(m_invalidKey) };
-  // TODO: dont use try/catch (won't work when exceptions disabled)
-  try {
-    return as_if<T, void>(*this)();
-  }
-  catch (Exception err) {
-    return std::unexpected{ err };
-  }
+  return as_if<T, Exception>(*this)();
 }
 #endif
 
