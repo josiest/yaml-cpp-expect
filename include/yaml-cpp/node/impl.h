@@ -55,9 +55,14 @@ inline Node::Node(detail::node& node, detail::shared_memory_holder pMemory)
 
 inline Node::~Node() = default;
 
+#ifdef __cpp_exceptions
 inline void Node::EnsureNodeExists() const {
   if (!m_isValid)
     throw InvalidNode(m_invalidKey);
+  EnsureNodeMemoryExists();
+}
+#endif
+inline void Node::EnsureNodeMemoryExists() const {
   if (!m_pNode) {
     m_pMemory.reset(new detail::memory_holder);
     m_pNode = &m_pMemory->create_node();
@@ -65,7 +70,7 @@ inline void Node::EnsureNodeExists() const {
   }
 }
 
-inline bool Node::IsDefined() const {
+inline bool Node::IsDefined() const noexcept {
   if (!m_isValid) {
     return false;
   }
@@ -74,14 +79,23 @@ inline bool Node::IsDefined() const {
 
 inline Mark Node::Mark() const {
   if (!m_isValid) {
+#ifdef __cpp_exceptions
     throw InvalidNode(m_invalidKey);
+#else
+    return Mark::null_mark();
+#endif
   }
   return m_pNode ? m_pNode->mark() : Mark::null_mark();
 }
 
 inline NodeType::value Node::Type() const {
-  if (!m_isValid)
+  if (!m_isValid) {
+#ifdef __cpp_exceptions
     throw InvalidNode(m_invalidKey);
+#else
+    return Nodetype::Undefined;
+#endif
+  }
   return m_pNode ? m_pNode->type() : NodeType::Null;
 }
 
@@ -118,6 +132,7 @@ struct as_if<std::string, S> {
   }
 };
 
+#ifdef __cpp_exceptions
 template <typename T>
 struct as_if<T, void> {
   explicit as_if(const Node& node_) : node(node_) {}
@@ -155,6 +170,7 @@ inline T Node::as() const {
     throw InvalidNode(m_invalidKey);
   return as_if<T, void>(*this)();
 }
+#endif // __cpp_exceptions
 
 template <typename T, typename S>
 inline T Node::as(const S& fallback) const {
@@ -164,37 +180,71 @@ inline T Node::as(const S& fallback) const {
 }
 
 inline const std::string& Node::Scalar() const {
-  if (!m_isValid)
+  if (!m_isValid) {
+#ifdef __cpp_exceptions
     throw InvalidNode(m_invalidKey);
+#else
+    return detail::node_data::invalid_scalar();
+#endif
+  }
   return m_pNode ? m_pNode->scalar() : detail::node_data::empty_scalar();
 }
 
 inline const std::string& Node::Tag() const {
-  if (!m_isValid)
+  if (!m_isValid) {
+#ifdef __cpp_exceptions
     throw InvalidNode(m_invalidKey);
+#else
+    return detail::node_data::invalid_scalar();
+#endif
+  }
   return m_pNode ? m_pNode->tag() : detail::node_data::empty_scalar();
 }
 
 inline void Node::SetTag(const std::string& tag) {
+#ifdef __cpp_exceptions
   EnsureNodeExists();
+#else
+  EnsureNodeMemoryExists();
+  if (!m_isValid) {
+    m_pNode->set_tag(detail::node_data::invalid_scalar());
+    return;
+  }
+#endif
   m_pNode->set_tag(tag);
 }
 
 inline EmitterStyle::value Node::Style() const {
-  if (!m_isValid)
+  if (!m_isValid) {
+#ifdef __cpp_exceptions
     throw InvalidNode(m_invalidKey);
+#else
+    return EmitterStyle::Default;
+#endif
+  }
   return m_pNode ? m_pNode->style() : EmitterStyle::Default;
 }
 
 inline void Node::SetStyle(EmitterStyle::value style) {
+#ifdef __cpp_exceptions
   EnsureNodeExists();
+#else
+  if (!m_isValid) {
+    return;
+  }
+#endif
   m_pNode->set_style(style);
 }
 
 // assignment
 inline bool Node::is(const Node& rhs) const {
-  if (!m_isValid || !rhs.m_isValid)
+  if (!m_isValid || !rhs.m_isValid) {
+#ifdef __cpp_exceptions
     throw InvalidNode(m_invalidKey);
+#else
+    return false;
+#endif
+  }
   if (!m_pNode || !rhs.m_pNode)
     return false;
   return m_pNode->is(*rhs.m_pNode);
@@ -214,47 +264,87 @@ inline Node& Node::operator=(const Node& rhs) {
 }
 
 inline void Node::reset(const YAML::Node& rhs) {
+#ifdef __cpp_exceptions
   if (!m_isValid || !rhs.m_isValid)
     throw InvalidNode(m_invalidKey);
+#else
+  m_isValid = rhs.m_isValid;
+#endif
   m_pMemory = rhs.m_pMemory;
   m_pNode = rhs.m_pNode;
 }
 
 template <typename T>
 inline void Node::Assign(const T& rhs) {
+#ifdef __cpp_exceptions
   if (!m_isValid)
     throw InvalidNode(m_invalidKey);
+#endif
   AssignData(convert<T>::encode(rhs));
 }
 
 template <>
 inline void Node::Assign(const std::string& rhs) {
+#ifdef __cpp_exceptions
   EnsureNodeExists();
+#else
+  EnsureNodeMemoryExists();
+  if (!m_isValid) {
+    m_pNode->set_scalar(detail::node_data::invalid_scalar);
+    return;
+  }
+#endif
   m_pNode->set_scalar(rhs);
 }
 
 inline void Node::Assign(const char* rhs) {
+#ifdef __cpp_exceptions
   EnsureNodeExists();
+#else
+  EnsureNodeMemoryExists();
+  if (!m_isValid) {
+    m_pNode->set_scalar(detail::node_data::invalid_scalar);
+    return;
+  }
+#endif
   m_pNode->set_scalar(rhs);
 }
 
 inline void Node::Assign(char* rhs) {
+#ifdef __cpp_exceptions
   EnsureNodeExists();
+#else
+  EnsureNodeMemoryExists();
+  if (!m_isValid) {
+    m_pNode->set_scalar(detail::node_data::invalid_scalar);
+    return;
+  }
+#endif
   m_pNode->set_scalar(rhs);
 }
 
 inline void Node::AssignData(const Node& rhs) {
+#ifdef __cpp_exceptions
   EnsureNodeExists();
   rhs.EnsureNodeExists();
+#else
+  EnsureNodeMemoryExists();
+  rhs.EnsureNodeMemoryExists();
+#endif
 
   m_pNode->set_data(*rhs.m_pNode);
   m_pMemory->merge(*rhs.m_pMemory);
 }
 
 inline void Node::AssignNode(const Node& rhs) {
+#ifdef __cpp_exceptions
   if (!m_isValid)
     throw InvalidNode(m_invalidKey);
   rhs.EnsureNodeExists();
+#else
+  rhs.EnsureNodeMemoryExists();
+  m_isValid = rhs.m_isValid;
+#endif
 
   if (!m_pNode) {
     m_pNode = rhs.m_pNode;
@@ -269,8 +359,12 @@ inline void Node::AssignNode(const Node& rhs) {
 
 // size/iterator
 inline std::size_t Node::size() const {
+#ifdef __cpp_exceptions
   if (!m_isValid)
     throw InvalidNode(m_invalidKey);
+#else
+  return 0;
+#endif
   return m_pNode ? m_pNode->size() : 0;
 }
 
@@ -302,14 +396,27 @@ inline iterator Node::end() {
 // sequence
 template <typename T>
 inline void Node::push_back(const T& rhs) {
-  if (!m_isValid)
+  if (!m_isValid) {
+#ifdef __cpp_exceptions
     throw InvalidNode(m_invalidKey);
+#else
+    return;
+#endif
+  }
   push_back(Node(rhs));
 }
 
 inline void Node::push_back(const Node& rhs) {
+#ifdef __cpp_exceptions
   EnsureNodeExists();
   rhs.EnsureNodeExists();
+#else
+  if (!m_isValid) {
+    return;
+  }
+  EnsureNodeMemoryExists();
+  rhs.EnsureNodeMemoryExists();
+#endif
 
   m_pNode->push_back(*rhs.m_pNode, m_pMemory);
   m_pMemory->merge(*rhs.m_pMemory);
@@ -323,7 +430,14 @@ std::string key_to_string(const Key& key) {
 // indexing
 template <typename Key>
 inline const Node Node::operator[](const Key& key) const {
+#ifdef __cpp_exceptions
   EnsureNodeExists();
+#else
+  if (!m_isValid) {
+    return Node(ZombieNode, key_to_string(key));
+  }
+  EnsureNodeMemoryExists();
+#endif
   detail::node* value =
       static_cast<const detail::node&>(*m_pNode).get(key, m_pMemory);
   if (!value) {
@@ -334,20 +448,42 @@ inline const Node Node::operator[](const Key& key) const {
 
 template <typename Key>
 inline Node Node::operator[](const Key& key) {
+#ifdef __cpp_exceptions
   EnsureNodeExists();
+#else
+  if (!m_isValid) {
+    return Node(ZombieNode, key_to_string(key));
+  }
+  EnsureNodeMemoryExists();
+#endif
   detail::node& value = m_pNode->get(key, m_pMemory);
   return Node(value, m_pMemory);
 }
 
 template <typename Key>
 inline bool Node::remove(const Key& key) {
+#ifdef __cpp_exceptions
   EnsureNodeExists();
+#else
+  if (!m_isValid) {
+    return false;
+  }
+  EnsureNodeMemoryExists();
+#endif
   return m_pNode->remove(key, m_pMemory);
 }
 
 inline const Node Node::operator[](const Node& key) const {
+#ifdef __cpp_exceptions
   EnsureNodeExists();
   key.EnsureNodeExists();
+#else
+  if (!m_isValid) {
+    return Node(ZombieNode, key_to_string(key));
+  }
+  EnsureNodeMemoryExists();
+  key.EnsureNodeMemoryExists();
+#endif
   m_pMemory->merge(*key.m_pMemory);
   detail::node* value =
       static_cast<const detail::node&>(*m_pNode).get(*key.m_pNode, m_pMemory);
@@ -358,23 +494,46 @@ inline const Node Node::operator[](const Node& key) const {
 }
 
 inline Node Node::operator[](const Node& key) {
+#ifdef __cpp_exceptions
   EnsureNodeExists();
   key.EnsureNodeExists();
+#else
+  if (!m_isValid) {
+    return Node(ZombieNode, key_to_string(key));
+  }
+  EnsureNodeMemoryExists();
+  key.EnsureNodeMemoryExists();
+#endif
   m_pMemory->merge(*key.m_pMemory);
   detail::node& value = m_pNode->get(*key.m_pNode, m_pMemory);
   return Node(value, m_pMemory);
 }
 
 inline bool Node::remove(const Node& key) {
+#ifdef __cpp_exceptions
   EnsureNodeExists();
   key.EnsureNodeExists();
+#else
+  if (!m_isValid) {
+    return false;
+  }
+  EnsureNodeMemoryExists();
+  key.EnsureNodeMemoryExists();
+#endif
   return m_pNode->remove(*key.m_pNode, m_pMemory);
 }
 
 // map
 template <typename Key, typename Value>
 inline void Node::force_insert(const Key& key, const Value& value) {
+#ifdef __cpp_exceptions
   EnsureNodeExists();
+#else
+  if (!m_isValid) {
+    return;
+  }
+  EnsureNodeMemoryExists();
+#endif
   m_pNode->force_insert(key, value, m_pMemory);
 }
 

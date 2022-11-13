@@ -225,7 +225,11 @@ template <typename T>
 inline node& node_data::convert_to_node(const T& rhs,
                                         shared_memory_holder pMemory) {
   Node value = convert<T>::encode(rhs);
+#ifdef __cpp_exceptions
   value.EnsureNodeExists();
+#else
+  value.EnsureNodeMemoryExists();
+#endif
   pMemory->merge(*value.m_pMemory);
   return *value.m_pNode;
 }

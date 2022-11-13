@@ -62,8 +62,10 @@ class YAML_CPP_API Node {
   bool operator!() const { return !IsDefined(); }
 
   // access
+#ifdef __cpp_exceptions
   template <typename T>
   T as() const;
+#endif
   template <typename T, typename S>
   T as(const S& fallback) const;
   const std::string& Scalar() const;
@@ -119,7 +121,10 @@ class YAML_CPP_API Node {
   explicit Node(Zombie, const std::string&);
   explicit Node(detail::node& node, detail::shared_memory_holder pMemory);
 
+#ifdef __cpp_exceptions
   void EnsureNodeExists() const;
+#endif
+  void EnsureNodeMemoryExists() const;
 
   template <typename T>
   void Assign(const T& rhs);

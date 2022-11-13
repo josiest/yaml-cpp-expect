@@ -82,6 +82,7 @@ class YAML_CPP_API node_data {
 
  public:
   static const std::string& empty_scalar();
+  static const std::string& invalid_scalar();
 
  private:
   void compute_seq_size() const;
