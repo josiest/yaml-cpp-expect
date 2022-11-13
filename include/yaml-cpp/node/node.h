@@ -7,6 +7,11 @@
 #pragma once
 #endif
 
+#if __cplusplus > 202002L
+#include <expected>
+#include "yaml-cpp/exceptions.h"
+#endif
+
 #include <stdexcept>
 #include <string>
 
@@ -67,6 +72,11 @@ class YAML_CPP_API Node {
   template <typename T, typename S>
   T as(const S& fallback) const;
   const std::string& Scalar() const;
+
+#if __cplusplus > 202002L
+  template <typename T>
+  std::expected<T, Exception> expect() const noexcept;
+#endif
 
   const std::string& Tag() const;
   void SetTag(const std::string& tag);

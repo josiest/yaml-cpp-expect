@@ -163,6 +163,21 @@ inline T Node::as(const S& fallback) const {
   return as_if<T, S>(*this)(fallback);
 }
 
+#if __cplusplus > 202002L
+template <typename T>
+inline std::expected<T, Exception> Node::expect() const noexcept {
+  if (!m_isValid)
+    return std::unexpected{ InvalidNode(m_invalidKey) };
+  // TODO: dont use try/catch (won't work when exceptions disabled)
+  try {
+    return as_if<T, void>(*this)();
+  }
+  catch (Exception err) {
+    return std::unexpected{ err };
+  }
+}
+#endif
+
 inline const std::string& Node::Scalar() const {
   if (!m_isValid)
     throw InvalidNode(m_invalidKey);

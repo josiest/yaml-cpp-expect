@@ -24,6 +24,7 @@ option(YAML_CPP_BUILD_TOOLS "Enable parse tools" ON)
 option(YAML_BUILD_SHARED_LIBS "Build yaml-cpp shared library" ${BUILD_SHARED_LIBS})
 option(YAML_CPP_INSTALL "Enable generation of yaml-cpp install targets" ${YAML_CPP_MAIN_PROJECT})
 option(YAML_CPP_FORMAT_SOURCE "Format source" ON)
+option(YAML_CPP_EXPECTED "Require C++23 when building" OFF)
 
 if (YAML_CPP_BUILD_TESTS)
     include(CTest)
@@ -99,7 +100,11 @@ target_include_directories(yaml-cpp
   PRIVATE
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
 
-if (NOT DEFINED CMAKE_CXX_STANDARD)
+if (YAML_CPP_EXPECTED)
+  set_target_properties(yaml-cpp
+    PROPERTIES
+      CXX_STANDARD 23)
+elseif (NOT DEFINED CMAKE_CXX_STANDARD)
   set_target_properties(yaml-cpp
     PROPERTIES
       CXX_STANDARD 11)
