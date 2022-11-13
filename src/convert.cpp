@@ -71,4 +71,13 @@ bool convert<bool>::decode(const Node& node, bool& rhs) {
 
   return false;
 }
+
+#if __cplusplus > 202002L
+Expected<void> convert<bool>::expect(const Node& node, bool& rhs) {
+  if (!node.IsDefined())
+    return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+  if (!decode(node, rhs))
+    return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+}
+#endif
 }  // namespace YAML

@@ -14,6 +14,10 @@
 #include <stdexcept>
 #include <string>
 
+#if __cplusplus > 202002L
+#include <expected>
+#endif
+
 namespace YAML {
 // error messages
 namespace ErrorMsg {
@@ -298,6 +302,11 @@ class YAML_CPP_API BadFile : public Exception {
   BadFile(const BadFile&) = default;
   ~BadFile() YAML_CPP_NOEXCEPT override;
 };
+
+#if __cplusplus > 202002L
+template<typename T>
+using Expected = std::expected<T, Exception>;
+#endif
 }  // namespace YAML
 
 #endif  // EXCEPTIONS_H_62B23520_7C8E_11DE_8A39_0800200C9A66

@@ -18,6 +18,11 @@
 #include <valarray>
 #include <vector>
 
+#if __cplusplus > 202002L
+#include <expected>
+#include "yaml-cpp/exceptions.h"
+#endif
+
 #include "yaml-cpp/binary.h"
 #include "yaml-cpp/node/impl.h"
 #include "yaml-cpp/node/iterator.h"
@@ -58,6 +63,14 @@ struct convert<Node> {
     rhs.reset(node);
     return true;
   }
+
+#if __cplusplus > 202002L
+  static Expected<void> expect(const Node& node, Node& rhs) noexcept {
+    if (!node.IsDefined() || !rhs.IsDefined()) {
+      return std::unexpected(Exception(rhs.Mark(), ErrorMsg::INVALID_NODE));
+    }
+  }
+#endif
 };
 
 // std::string
@@ -71,6 +84,15 @@ struct convert<std::string> {
     rhs = node.Scalar();
     return true;
   }
+#if __cplusplus > 202002L
+  static Expected<void> expect(const Node& node, std::string& rhs) noexcept {
+    if (!node.IsDefined())
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+    if (!node.IsScalar())
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_SCALAR));
+    rhs = node.Scalar();
+  }
+#endif
 };
 
 // C-strings can only be encoded
@@ -96,6 +118,12 @@ struct convert<_Null> {
   static bool decode(const Node& node, _Null& /* rhs */) {
     return node.IsNull();
   }
+#if __cplusplus > 202002L
+  static Expected<void> expect(const Node& node, _Null& /* rhs */) {
+    if (!node.IsNull())
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+  }
+#endif
 };
 
 namespace conversion {
@@ -147,6 +175,7 @@ ConvertStreamTo(std::stringstream& stream, T& rhs) {
 }
 }
 
+#if __cplusplus < 202002L
 #define YAML_DEFINE_CONVERT_STREAMABLE(type, negative_op)                  \
   template <>                                                              \
   struct convert<type> {                                                   \
@@ -219,12 +248,75 @@ YAML_DEFINE_CONVERT_STREAMABLE_SIGNED(long double);
 #undef YAML_DEFINE_CONVERT_STREAMABLE_UNSIGNED
 #undef YAML_DEFINE_CONVERT_STREAMABLE
 
+#else
+template <typename T>
+requires ((std::integral<T> || std::floating_point<T>)
+          && !std::same_as<T, bool>)
+struct convert<T> {
+
+  static Node encode(const T& rhs) {
+    std::stringstream stream;
+    stream.precision(std::numeric_limits<T>::max_digits10);
+    conversion::inner_encode(rhs, stream);
+    return Node(stream.str());
+  }
+
+  static bool decode(const Node& node, T& rhs) {
+    if (node.Type() != NodeType::Scalar) {
+      return false;
+    }
+    const std::string& input = node.Scalar();
+    std::stringstream stream(input);
+    stream.unsetf(std::ios::dec);
+    if ((stream.peek() == '-') && std::is_unsigned<T>::value) {
+      return false;
+    }
+    if (conversion::ConvertStreamTo(stream, rhs)) {
+      return true;
+    }
+    if (std::numeric_limits<T>::has_infinity) {
+      if (conversion::IsInfinity(input)) {
+        rhs = std::numeric_limits<T>::infinity();
+        return true;
+      } else if (conversion::IsNegativeInfinity(input)) {
+        rhs = std::is_unsigned_v<T> ?  std::numeric_limits<T>::infinity()
+                                    : -std::numeric_limits<T>::infinity();
+        return true;
+      }
+    }
+
+    if (std::numeric_limits<T>::has_quiet_NaN) {
+      if (conversion::IsNaN(input)) {
+        rhs = std::numeric_limits<T>::quiet_NaN();
+        return true;
+      }
+    }
+
+    return false;
+  }
+#if __cplusplus > 202002L
+  static Expected<void> expect(const Node& node, T& rhs) noexcept {
+    if (!node.IsDefined())
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+    if (!node.IsScalar())
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_SCALAR));
+    if (!decode(node, rhs))
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+  }
+#endif // __cplusplus > 202002L
+};
+
+#endif // __cplusplus >= 202002L
+
 // bool
 template <>
 struct convert<bool> {
   static Node encode(bool rhs) { return rhs ? Node("true") : Node("false"); }
 
   YAML_CPP_API static bool decode(const Node& node, bool& rhs);
+#if __cplusplus > 202002L
+  YAML_CPP_API static Expected<void> expect(const Node& node, bool& rhs);
+#endif
 };
 
 // std::map
@@ -251,6 +343,14 @@ struct convert<std::map<K, V, C, A>> {
 #endif
     return true;
   }
+#if __cplusplus > 202002L
+  static Expected<void> expect(const Node& node, std::map<K, V, C, A>& rhs) {
+    if (!node.IsDefined())
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+    if (!decode(node, rhs))
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+  }
+#endif
 };
 
 // std::unordered_map
@@ -277,6 +377,15 @@ struct convert<std::unordered_map<K, V, H, P, A>> {
 #endif
     return true;
   }
+#if __cplusplus > 202002L
+  static Expected<void> expect(const Node& node,
+                               std::unordered_map<K, V, H, P, A>& rhs) {
+    if (!node.IsDefined())
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+    if (!decode(node, rhs))
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+  }
+#endif
 };
 
 // std::vector
@@ -303,6 +412,14 @@ struct convert<std::vector<T, A>> {
 #endif
     return true;
   }
+#if __cplusplus > 202002L
+  static Expected<void> expect(const Node& node, std::vector<T, A>& rhs) {
+    if (!node.IsDefined())
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+    if (!decode(node, rhs))
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+  }
+#endif
 };
 
 // std::list
@@ -329,6 +446,14 @@ struct convert<std::list<T,A>> {
 #endif
     return true;
   }
+#if __cplusplus > 202002L
+  static Expected<void> expect(const Node& node, std::list<T, A>& rhs) {
+    if (!node.IsDefined())
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+    if (!decode(node, rhs))
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+  }
+#endif
 };
 
 // std::array
@@ -357,6 +482,14 @@ struct convert<std::array<T, N>> {
     }
     return true;
   }
+#if __cplusplus > 202002L
+  static Expected<void> expect(const Node& node, std::array<T, N>& rhs) {
+    if (!node.IsDefined())
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+    if (!decode(node, rhs))
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+  }
+#endif
 
  private:
   static bool isNodeValid(const Node& node) {
@@ -392,6 +525,14 @@ struct convert<std::valarray<T>> {
     }
     return true;
   }
+#if __cplusplus > 202002L
+  static Expected<void> expect(const Node& node, std::valarray<T>& rhs) {
+    if (!node.IsDefined())
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+    if (!decode(node, rhs))
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+  }
+#endif
 };
 
 
@@ -425,6 +566,14 @@ struct convert<std::pair<T, U>> {
 #endif
     return true;
   }
+#if __cplusplus > 202002L
+  static Expected<void> expect(const Node& node, std::pair<T, U>& rhs) {
+    if (!node.IsDefined())
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+    if (!decode(node, rhs))
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+  }
+#endif
 };
 
 // binary
@@ -445,6 +594,14 @@ struct convert<Binary> {
     rhs.swap(data);
     return true;
   }
+#if __cplusplus > 202002L
+  static Expected<void> expect(const Node& node, Binary& rhs) {
+    if (!node.IsDefined())
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+    if (!decode(node, rhs))
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+  }
+#endif
 };
 }
 
