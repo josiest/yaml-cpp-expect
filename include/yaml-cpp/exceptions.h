@@ -93,6 +93,15 @@ const char* const INVALID_ALIAS = "invalid alias";
 const char* const INVALID_TAG = "invalid tag";
 const char* const BAD_FILE = "bad file";
 
+const char* const NOT_A_BOOL = "expecting a boolean";
+const char* const NOT_AN_INTEGER = "expecting an integer";
+const char* const NOT_NON_NEGATIVE = "expecting a non-negative";
+const char* const NOT_A_FLOAT = "expecting a number";
+const char* const NOT_A_STRING = "expecting a string";
+const char* const NOT_A_PAIR = "expecting a sequence of exactly two values";
+const char* const NOT_A_SEQUENCE = "expecting a sequence";
+const char* const NOT_A_MAP = "expecting a map";
+
 template <typename T>
 inline const std::string KEY_NOT_FOUND_WITH_KEY(
     const T&, typename disable_if<is_numeric<T>>::type* = 0) {

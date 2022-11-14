@@ -90,7 +90,7 @@ struct convert<std::string> {
     if (!node.IsDefined())
       return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
     if (!node.IsScalar())
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_SCALAR));
+      return std::unexpected(Exception(node.Mark(), ErrorMsg::NOT_A_STRING));
     rhs = node.Scalar();
     return {};
   }
@@ -178,7 +178,7 @@ ConvertStreamTo(std::stringstream& stream, T& rhs) {
 }
 }
 
-#if __cplusplus < 202002L
+#if __cplusplus <= 202002L
 #define YAML_DEFINE_CONVERT_STREAMABLE(type, negative_op)                  \
   template <>                                                              \
   struct convert<type> {                                                   \
@@ -251,10 +251,41 @@ YAML_DEFINE_CONVERT_STREAMABLE_SIGNED(long double);
 #undef YAML_DEFINE_CONVERT_STREAMABLE_UNSIGNED
 #undef YAML_DEFINE_CONVERT_STREAMABLE
 
-#else
-template <typename T>
-requires ((std::integral<T> || std::floating_point<T>)
-          && !std::same_as<T, bool>)
+#else // __cplusplus > 202002L
+template <std::integral T>
+requires (!std::same_as<T, bool>)
+struct convert<T> {
+  static Node encode(const T& rhs) {
+    return Node(std::to_string(rhs));
+  }
+
+  static Expected<void> expect(const Node& node, const T& rhs) {
+    if (!node.IsDefined()) {
+      return Unexpected(node, ErrorMsg::INVALID_NODE);
+    }
+    if (node.Type() != NodeType::Scalar) {
+      return Unexpected(node, ErrorMsg::NOT_AN_INTEGER);
+    }
+    std::stringstream stream(node.Scalar());
+    if (std::is_unsigned_v<T> && (stream.peek() == '-')) {
+      return Unexpected(node, ErrorMsg::NOT_NON_NEGATIVE);
+    }
+    if (conversion::ConvertStreamTo(stream, rhs)) {
+      return {};
+    }
+    return Unexpected(node, ErrorMsg::BAD_CONVERSION);
+  }
+
+  static bool decode(const Node& node, const T& rhs) {
+    auto result = convert<T>::expect(node, rhs);
+    if (not result) {
+      throw result.error();
+    }
+    return *result;
+  }
+};
+
+template <std::floating_point T>
 struct convert<T> {
 
   static Node encode(const T& rhs) {
@@ -264,53 +295,52 @@ struct convert<T> {
     return Node(stream.str());
   }
 
-  static bool decode(const Node& node, T& rhs) {
+  static Expected<void> expect(const Node& node, T& rhs) {
+    if (!node.IsDefined()) {
+      return Unexpected(node, ErrorMsg::INVALID_NODE);
+    }
     if (node.Type() != NodeType::Scalar) {
-      return false;
+      return Unexpected(node, ErrorMsg::NOT_A_FLOAT);
     }
     const std::string& input = node.Scalar();
     std::stringstream stream(input);
     stream.unsetf(std::ios::dec);
-    if ((stream.peek() == '-') && std::is_unsigned<T>::value) {
-      return false;
+    if (std::is_unsigned_v<T> && (stream.peek() == '-')) {
+      return Unexpected(node, ErrorMsg::NOT_NON_NEGATIVE);
     }
     if (conversion::ConvertStreamTo(stream, rhs)) {
-      return true;
+      return {};
     }
     if (std::numeric_limits<T>::has_infinity) {
       if (conversion::IsInfinity(input)) {
         rhs = std::numeric_limits<T>::infinity();
-        return true;
+        return {};
       } else if (conversion::IsNegativeInfinity(input)) {
         rhs = std::is_unsigned_v<T> ?  std::numeric_limits<T>::infinity()
                                     : -std::numeric_limits<T>::infinity();
-        return true;
+        return {};
       }
     }
 
     if (std::numeric_limits<T>::has_quiet_NaN) {
       if (conversion::IsNaN(input)) {
         rhs = std::numeric_limits<T>::quiet_NaN();
-        return true;
+        return {};
       }
     }
 
-    return false;
+    return Unexpected(node, ErrorMsg::BAD_CONVERSION);
   }
-#if __cplusplus > 202002L
-  static Expected<void> expect(const Node& node, T& rhs) noexcept {
-    if (!node.IsDefined())
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
-    if (!node.IsScalar())
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_SCALAR));
-    if (!decode(node, rhs))
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
-    return {};
-  }
-#endif // __cplusplus > 202002L
-};
 
-#endif // __cplusplus >= 202002L
+  static bool decode(const Node& node, T& rhs) {
+    auto result = convert<T>::expect(node, rhs);
+    if (not result) {
+      throw result.error();
+    }
+    return *result;
+  }
+};
+#endif // __cplusplus > 202002L
 
 // bool
 template <>
@@ -350,9 +380,11 @@ struct convert<std::map<K, V, C, A>> {
 #if __cplusplus > 202002L
   static Expected<void> expect(const Node& node, std::map<K, V, C, A>& rhs) {
     if (!node.IsDefined())
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+      return Unexpected(node, ErrorMsg::INVALID_NODE);
+    if (!node.IsMap())
+      return Unexpected(node, ErrorMsg::NOT_A_MAP);
     if (!decode(node, rhs))
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+      return Unexpected(node, ErrorMsg::BAD_CONVERSION);
     return {};
   }
 #endif
@@ -386,9 +418,11 @@ struct convert<std::unordered_map<K, V, H, P, A>> {
   static Expected<void> expect(const Node& node,
                                std::unordered_map<K, V, H, P, A>& rhs) {
     if (!node.IsDefined())
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+      return Unexpected(node, ErrorMsg::INVALID_NODE);
+    if (!node.IsMap())
+      return Unexpected(node, ErrorMsg::NOT_A_MAP);
     if (!decode(node, rhs))
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+      return Unexpected(node, ErrorMsg::BAD_CONVERSION);
     return {};
   }
 #endif
@@ -421,9 +455,11 @@ struct convert<std::vector<T, A>> {
 #if __cplusplus > 202002L
   static Expected<void> expect(const Node& node, std::vector<T, A>& rhs) {
     if (!node.IsDefined())
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+      return Unexpected(node, ErrorMsg::INVALID_NODE);
+    if (!node.IsSequence())
+      return Unexpected(node, ErrorMsg::NOT_A_SEQUENCE);
     if (!decode(node, rhs))
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+      return Unexpected(node, ErrorMsg::BAD_CONVERSION);
     return {};
   }
 #endif
@@ -456,9 +492,11 @@ struct convert<std::list<T,A>> {
 #if __cplusplus > 202002L
   static Expected<void> expect(const Node& node, std::list<T, A>& rhs) {
     if (!node.IsDefined())
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+      return Unexpected(node, ErrorMsg::INVALID_NODE);
+    if (!node.IsSequence())
+      return Unexpected(node, ErrorMsg::NOT_A_SEQUENCE);
     if (!decode(node, rhs))
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+      return Unexpected(node, ErrorMsg::BAD_CONVERSION);
     return {};
   }
 #endif
@@ -493,9 +531,11 @@ struct convert<std::array<T, N>> {
 #if __cplusplus > 202002L
   static Expected<void> expect(const Node& node, std::array<T, N>& rhs) {
     if (!node.IsDefined())
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+      return Unexpected(node, ErrorMsg::INVALID_NODE);
+    if (!node.IsSequence())
+      return Unexpected(node, ErrorMsg::NOT_A_SEQUENCE);
     if (!decode(node, rhs))
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+      return Unexpected(node, ErrorMsg::BAD_CONVERSION);
     return {};
   }
 #endif
@@ -537,9 +577,11 @@ struct convert<std::valarray<T>> {
 #if __cplusplus > 202002L
   static Expected<void> expect(const Node& node, std::valarray<T>& rhs) {
     if (!node.IsDefined())
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+      return Unexpected(node, ErrorMsg::INVALID_NODE);
+    if (!node.IsSequence())
+      return Unexpected(node, ErrorMsg::NOT_A_SEQUENCE);
     if (!decode(node, rhs))
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+      return Unexpected(node, ErrorMsg::BAD_CONVERSION);
     return {};
   }
 #endif
@@ -579,9 +621,11 @@ struct convert<std::pair<T, U>> {
 #if __cplusplus > 202002L
   static Expected<void> expect(const Node& node, std::pair<T, U>& rhs) {
     if (!node.IsDefined())
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+      return Unexpected(node, ErrorMsg::INVALID_NODE);
+    if (!node.IsSequence() || node.size() != 2)
+      return Unexpected(node, ErrorMsg::NOT_A_PAIR);
     if (!decode(node, rhs))
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+      return Unexpected(node, ErrorMsg::BAD_CONVERSION);
     return {};
   }
 #endif
