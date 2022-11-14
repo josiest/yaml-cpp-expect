@@ -69,6 +69,7 @@ struct convert<Node> {
     if (!node.IsDefined() || !rhs.IsDefined()) {
       return std::unexpected(Exception(rhs.Mark(), ErrorMsg::INVALID_NODE));
     }
+    return {};
   }
 #endif
 };
@@ -91,6 +92,7 @@ struct convert<std::string> {
     if (!node.IsScalar())
       return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_SCALAR));
     rhs = node.Scalar();
+    return {};
   }
 #endif
 };
@@ -122,6 +124,7 @@ struct convert<_Null> {
   static Expected<void> expect(const Node& node, _Null& /* rhs */) {
     if (!node.IsNull())
       return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+    return {};
   }
 #endif
 };
@@ -302,6 +305,7 @@ struct convert<T> {
       return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_SCALAR));
     if (!decode(node, rhs))
       return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+    return {};
   }
 #endif // __cplusplus > 202002L
 };
@@ -349,6 +353,7 @@ struct convert<std::map<K, V, C, A>> {
       return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
     if (!decode(node, rhs))
       return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+    return {};
   }
 #endif
 };
@@ -384,6 +389,7 @@ struct convert<std::unordered_map<K, V, H, P, A>> {
       return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
     if (!decode(node, rhs))
       return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+    return {};
   }
 #endif
 };
@@ -418,6 +424,7 @@ struct convert<std::vector<T, A>> {
       return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
     if (!decode(node, rhs))
       return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+    return {};
   }
 #endif
 };
@@ -452,6 +459,7 @@ struct convert<std::list<T,A>> {
       return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
     if (!decode(node, rhs))
       return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+    return {};
   }
 #endif
 };
@@ -488,6 +496,7 @@ struct convert<std::array<T, N>> {
       return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
     if (!decode(node, rhs))
       return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+    return {};
   }
 #endif
 
@@ -531,6 +540,7 @@ struct convert<std::valarray<T>> {
       return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
     if (!decode(node, rhs))
       return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+    return {};
   }
 #endif
 };
@@ -572,6 +582,7 @@ struct convert<std::pair<T, U>> {
       return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
     if (!decode(node, rhs))
       return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+    return {};
   }
 #endif
 };
@@ -600,6 +611,7 @@ struct convert<Binary> {
       return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
     if (!decode(node, rhs))
       return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+    return {};
   }
 #endif
 };
