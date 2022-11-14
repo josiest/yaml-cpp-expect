@@ -1,5 +1,6 @@
 #include "yaml-cpp/exceptions.h"
 #include "yaml-cpp/noexcept.h"
+#include "yaml-cpp/node/node.h"
 
 namespace YAML {
 
@@ -17,4 +18,17 @@ BadPushback::~BadPushback() YAML_CPP_NOEXCEPT = default;
 BadInsert::~BadInsert() YAML_CPP_NOEXCEPT = default;
 EmitterException::~EmitterException() YAML_CPP_NOEXCEPT = default;
 BadFile::~BadFile() YAML_CPP_NOEXCEPT = default;
+
+std::unexpected<Exception>
+Unexpected(const Mark& mark, const std::string& msg)
+{
+    return std::unexpected(Exception(mark, msg));
+}
+
+std::unexpected<Exception>
+Unexpected(const Node& node, const std::string& msg)
+{
+    return std::unexpected(Exception(node.Mark(), msg));
+}
+
 }  // namespace YAML

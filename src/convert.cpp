@@ -78,6 +78,7 @@ Expected<void> convert<bool>::expect(const Node& node, bool& rhs) {
     return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
   if (!decode(node, rhs))
     return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+  return {};
 }
 #endif
 }  // namespace YAML

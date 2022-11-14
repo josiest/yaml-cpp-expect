@@ -19,6 +19,7 @@
 #endif
 
 namespace YAML {
+class Node; // forward declare for Unexpected helper
 // error messages
 namespace ErrorMsg {
 const char* const YAML_DIRECTIVE_ARGS =
@@ -306,6 +307,10 @@ class YAML_CPP_API BadFile : public Exception {
 #if __cplusplus > 202002L
 template<typename T>
 using Expected = std::expected<T, Exception>;
+std::unexpected<Exception>
+Unexpected(const Mark& mark, const std::string& msg);
+std::unexpected<Exception>
+Unexpected(const Node& node, const std::string& msg);
 #endif
 }  // namespace YAML
 
