@@ -316,7 +316,7 @@ struct convert<T> {
     if (not result) {
       throw result.error();
     }
-    return *result;
+    return true;
   }
 };
 
@@ -368,7 +368,7 @@ struct convert<T> {
     if (not result) {
       throw result.error();
     }
-    return *result;
+    return true;
   }
 };
 #endif // __cplusplus > 202002L
