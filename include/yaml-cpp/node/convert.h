@@ -294,7 +294,7 @@ struct convert<T> {
     return Node(std::to_string(rhs));
   }
 
-  static Expected<void> expect(const Node& node, const T& rhs) {
+  static Expected<void> expect(const Node& node, T& rhs) {
     if (!node.IsDefined()) {
       return Unexpected(node, ErrorMsg::INVALID_NODE);
     }
@@ -311,7 +311,7 @@ struct convert<T> {
     return Unexpected(node, ErrorMsg::BAD_CONVERSION);
   }
 
-  static bool decode(const Node& node, const T& rhs) {
+  static bool decode(const Node& node, T& rhs) {
     auto result = convert<T>::expect(node, rhs);
     if (not result) {
       throw result.error();
