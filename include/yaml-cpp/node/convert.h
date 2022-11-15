@@ -20,6 +20,7 @@
 
 #if __cplusplus > 202002L
 #include <expected>
+#include <concepts>
 #include "yaml-cpp/exceptions.h"
 #endif
 
@@ -129,9 +130,26 @@ struct convert<_Null> {
 #endif
 };
 
+#if __cplusplus >= 202002L
+template <typename T>
+concept OutputStreamable = requires(const T& t, std::stringstream & stream) {
+    { stream << t };
+};
+template <typename T>
+concept InputStreamable = requires(T& t, std::stringstream & stream) {
+    { stream >> t };
+};
+#endif
+
 namespace conversion {
+#if __cplusplus < 202002L
 template <typename T>
 typename std::enable_if< std::is_floating_point<T>::value, void>::type
+#else
+template <OutputStreamable T>
+requires std::floating_point<T>
+void
+#endif
 inner_encode(const T& rhs, std::stringstream& stream){
   if (std::isnan(rhs)) {
     stream << ".nan";
@@ -146,15 +164,27 @@ inner_encode(const T& rhs, std::stringstream& stream){
   }
 }
 
+#if __cplusplus < 202002L
 template <typename T>
 typename std::enable_if<!std::is_floating_point<T>::value, void>::type
+#else
+// not ambiguous since C++ will prefer "more specialized" types
+template <OutputStreamable T>
+void
+#endif
 inner_encode(const T& rhs, std::stringstream& stream){
   stream << rhs;
 }
 
+#if __cplusplus < 202002L
 template <typename T>
 typename std::enable_if<(std::is_same<T, unsigned char>::value ||
                          std::is_same<T, signed char>::value), bool>::type
+#else
+template <typename T>
+requires (std::same_as<T, signed char> || std::same_as<T, unsigned char>)
+bool
+#endif
 ConvertStreamTo(std::stringstream& stream, T& rhs) {
   int num;
   if ((stream >> std::noskipws >> num) && (stream >> std::ws).eof()) {
@@ -167,9 +197,14 @@ ConvertStreamTo(std::stringstream& stream, T& rhs) {
   return false;
 }
 
+#if __cplusplus < 202002L
 template <typename T>
 typename std::enable_if<!(std::is_same<T, unsigned char>::value ||
                           std::is_same<T, signed char>::value), bool>::type
+#else
+template <InputStreamable T>
+bool
+#endif
 ConvertStreamTo(std::stringstream& stream, T& rhs) {
   if ((stream >> std::noskipws >> rhs) && (stream >> std::ws).eof()) {
     return true;
