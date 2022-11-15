@@ -305,9 +305,6 @@ struct convert<T> {
     const std::string& input = node.Scalar();
     std::stringstream stream(input);
     stream.unsetf(std::ios::dec);
-    if (std::is_unsigned_v<T> && (stream.peek() == '-')) {
-      return Unexpected(node, ErrorMsg::NOT_NON_NEGATIVE);
-    }
     if (conversion::ConvertStreamTo(stream, rhs)) {
       return {};
     }
@@ -316,8 +313,7 @@ struct convert<T> {
         rhs = std::numeric_limits<T>::infinity();
         return {};
       } else if (conversion::IsNegativeInfinity(input)) {
-        rhs = std::is_unsigned_v<T> ?  std::numeric_limits<T>::infinity()
-                                    : -std::numeric_limits<T>::infinity();
+        rhs = -std::numeric_limits<T>::infinity();
         return {};
       }
     }

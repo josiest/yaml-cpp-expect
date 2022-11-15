@@ -95,7 +95,7 @@ const char* const BAD_FILE = "bad file";
 
 const char* const NOT_A_BOOL = "expecting a boolean";
 const char* const NOT_AN_INTEGER = "expecting an integer";
-const char* const NOT_NON_NEGATIVE = "expecting a non-negative";
+const char* const NOT_NON_NEGATIVE = "expecting a non-negative integer";
 const char* const NOT_A_FLOAT = "expecting a number";
 const char* const NOT_A_STRING = "expecting a string";
 const char* const NOT_A_PAIR = "expecting a sequence of exactly two values";

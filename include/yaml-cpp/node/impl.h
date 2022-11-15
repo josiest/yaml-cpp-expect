@@ -155,11 +155,15 @@ struct expect_if {
   const Node& node;
 
   std::expected<T, Exception> operator()() const noexcept {
-    if (!node.m_pNode)
-      return std::unexpected{ Exception(node.Mark(), ErrorMsg::BAD_CONVERSION) };
-
+    if (!node.IsDefined()) {
+      return Unexpected(node, ErrorMsg::BAD_CONVERSION);
+    }
     T t;
-    return convert<T>::expect(node, t);
+    const auto result = convert<T>::expect(node, t);
+    if (not result) {
+      return std::unexpected(result.error());
+    }
+    return t;
   }
 };
 
@@ -170,11 +174,11 @@ struct expect_if<std::string> {
 
   std::expected<std::string, Exception> operator()() const noexcept {
     if (!node.IsDefined())
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
+      return Unexpected(node, ErrorMsg::INVALID_NODE);
     if (node.Type() == NodeType::Null)
       return "null";
     if (node.Type() != NodeType::Scalar)
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
+      return Unexpected(node, ErrorMsg::BAD_CONVERSION);
     return node.Scalar();
   }
 };
@@ -199,10 +203,9 @@ inline T Node::as(const S& fallback) const {
 #if __cplusplus > 202002L
 template <typename T>
 inline std::expected<T, Exception> Node::expect() const noexcept {
-  if (!m_isValid)
-    return std::unexpected(
-      Expected(Mark(),
-               ErrorMsg::INVALID_NODE_WITH_KEY(m_invalidKey)));
+  if (!m_isValid) {
+    return Unexpected(Mark(), ErrorMsg::INVALID_NODE_WITH_KEY(m_invalidKey));
+  }
   return expect_if<T>(*this)();
 }
 #endif
