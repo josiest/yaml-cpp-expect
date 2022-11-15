@@ -156,7 +156,7 @@ struct expect_if {
 
   std::expected<T, Exception> operator()() const noexcept {
     if (!node.IsDefined()) {
-      return Unexpected(node, ErrorMsg::BAD_CONVERSION);
+      return Unexpected(node, ErrorMsg::INVALID_NODE);
     }
     T t;
     const auto result = convert<T>::expect(node, t);
