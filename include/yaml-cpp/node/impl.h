@@ -15,6 +15,10 @@
 #include <sstream>
 #include <string>
 
+#if __cplusplus > 202002L
+#include "yaml-cpp/node/expect.h"
+#endif
+
 namespace YAML {
 inline Node::Node()
     : m_isValid(true), m_invalidKey{}, m_pMemory(nullptr), m_pNode(nullptr) {}
@@ -158,31 +162,10 @@ struct expect_if {
     if (!node.IsDefined()) {
       return Unexpected(node, ErrorMsg::INVALID_NODE);
     }
-    T t;
-    const auto result = convert<T>::expect(node, t);
-    if (not result) {
-      return std::unexpected(result.error());
-    }
-    return t;
+    const expect<T> read;
+    return read(node);
   }
 };
-
-template <>
-struct expect_if<std::string> {
-  explicit expect_if(const Node& node_) : node(node_) {}
-  const Node& node;
-
-  std::expected<std::string, Exception> operator()() const noexcept {
-    if (!node.IsDefined())
-      return Unexpected(node, ErrorMsg::INVALID_NODE);
-    if (node.Type() == NodeType::Null)
-      return "null";
-    if (node.Type() != NodeType::Scalar)
-      return Unexpected(node, ErrorMsg::BAD_CONVERSION);
-    return node.Scalar();
-  }
-};
-
 #endif
 
 // access functions

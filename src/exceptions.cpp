@@ -2,6 +2,10 @@
 #include "yaml-cpp/noexcept.h"
 #include "yaml-cpp/node/node.h"
 
+#if __cplusplus > 202002L
+#include <expected>
+#endif
+
 namespace YAML {
 
 // These destructors are defined out-of-line so the vtable is only emitted once.
@@ -19,6 +23,7 @@ BadInsert::~BadInsert() YAML_CPP_NOEXCEPT = default;
 EmitterException::~EmitterException() YAML_CPP_NOEXCEPT = default;
 BadFile::~BadFile() YAML_CPP_NOEXCEPT = default;
 
+#if __cplusplus > 202002L
 std::unexpected<Exception>
 Unexpected(const Mark& mark, const std::string& msg)
 {
@@ -30,5 +35,6 @@ Unexpected(const Node& node, const std::string& msg)
 {
     return std::unexpected(Exception(node.Mark(), msg));
 }
+#endif
 
 }  // namespace YAML

@@ -93,7 +93,10 @@ const char* const INVALID_ALIAS = "invalid alias";
 const char* const INVALID_TAG = "invalid tag";
 const char* const BAD_FILE = "bad file";
 
+const char* const NOT_NULL = "expecting null";
 const char* const NOT_A_BOOL = "expecting a boolean";
+const char* const NOT_FLEXIBLE_BOOL =
+    "expecting bool to be lower, UPPER or Capitalized";
 const char* const NOT_AN_INTEGER = "expecting an integer";
 const char* const NOT_NON_NEGATIVE = "expecting a non-negative integer";
 const char* const NOT_A_FLOAT = "expecting a number";

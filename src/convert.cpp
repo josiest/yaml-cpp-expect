@@ -1,6 +1,8 @@
 #include <algorithm>
+#include <array>
 
 #include "yaml-cpp/node/convert.h"
+#include "yaml-cpp/exceptions.h"
 
 namespace {
 // we're not gonna mess with the mess that is all the isupper/etc. functions
@@ -73,12 +75,26 @@ bool convert<bool>::decode(const Node& node, bool& rhs) {
 }
 
 #if __cplusplus > 202002L
-Expected<void> convert<bool>::expect(const Node& node, bool& rhs) {
-  if (!node.IsDefined())
-    return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
-  if (!decode(node, rhs))
-    return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
-  return {};
+template<>
+Expected<bool> expect<bool>::operator()(const Node& node) const noexcept
+{
+  if (!node.IsScalar()) {
+    return Unexpected(node, ErrorMsg::NOT_A_BOOL);
+  }
+  if (!isFlexibleCase(node.Scalar())) {
+    return Unexpected(node, ErrorMsg::NOT_FLEXIBLE_BOOL);
+  }
+  const std::string lower = tolower(node.Scalar());
+  auto is_match = [&lower](auto const & str) {
+      return lower == str;
+  };
+  if (std::ranges::any_of(std::array{"y", "yes", "true", "on"}, is_match)) {
+      return true;
+  }
+  if (std::ranges::any_of(std::array{"n", "no", "false", "off"}, is_match)) {
+      return false;
+  }
+  return Unexpected(node, ErrorMsg::NOT_A_BOOL);
 }
 #endif
 }  // namespace YAML

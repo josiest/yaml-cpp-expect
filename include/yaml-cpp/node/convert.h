@@ -18,12 +18,6 @@
 #include <valarray>
 #include <vector>
 
-#if __cplusplus > 202002L
-#include <expected>
-#include <concepts>
-#include "yaml-cpp/exceptions.h"
-#endif
-
 #include "yaml-cpp/binary.h"
 #include "yaml-cpp/node/impl.h"
 #include "yaml-cpp/node/iterator.h"
@@ -31,6 +25,9 @@
 #include "yaml-cpp/node/type.h"
 #include "yaml-cpp/null.h"
 
+#if __cplusplus > 202002L
+#include "yaml-cpp/node/expect.h"
+#endif
 
 namespace YAML {
 class Binary;
@@ -40,6 +37,7 @@ struct convert;
 }  // namespace YAML
 
 namespace YAML {
+#if __cplusplus < 202002L
 namespace conversion {
 inline bool IsInfinity(const std::string& input) {
   return input == ".inf" || input == ".Inf" || input == ".INF" ||
@@ -54,6 +52,7 @@ inline bool IsNaN(const std::string& input) {
   return input == ".nan" || input == ".NaN" || input == ".NAN";
 }
 }
+#endif
 
 // Node
 template <>
@@ -64,16 +63,6 @@ struct convert<Node> {
     rhs.reset(node);
     return true;
   }
-
-#if __cplusplus > 202002L
-  static Expected<void> expect(const Node& node, Node& rhs) noexcept {
-    if (!rhs.IsDefined()) {
-      return std::unexpected(Exception(rhs.Mark(), ErrorMsg::INVALID_NODE));
-    }
-    rhs.reset(node);
-    return {};
-  }
-#endif
 };
 
 // std::string
@@ -87,14 +76,6 @@ struct convert<std::string> {
     rhs = node.Scalar();
     return true;
   }
-#if __cplusplus > 202002L
-  static Expected<void> expect(const Node& node, std::string& rhs) noexcept {
-    if (!node.IsScalar())
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::NOT_A_STRING));
-    rhs = node.Scalar();
-    return {};
-  }
-#endif
 };
 
 // C-strings can only be encoded
@@ -120,35 +101,12 @@ struct convert<_Null> {
   static bool decode(const Node& node, _Null& /* rhs */) {
     return node.IsNull();
   }
-#if __cplusplus > 202002L
-  static Expected<void> expect(const Node& node, _Null& /* rhs */) {
-    if (!node.IsNull())
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::INVALID_NODE));
-    return {};
-  }
-#endif
 };
 
-#if __cplusplus >= 202002L
-template <typename T>
-concept OutputStreamable = requires(const T& t, std::stringstream & stream) {
-    { stream << t };
-};
-template <typename T>
-concept InputStreamable = requires(T& t, std::stringstream & stream) {
-    { stream >> t };
-};
-#endif
-
-namespace conversion {
 #if __cplusplus < 202002L
+namespace conversion {
 template <typename T>
 typename std::enable_if< std::is_floating_point<T>::value, void>::type
-#else
-template <OutputStreamable T>
-requires std::floating_point<T>
-void
-#endif
 inner_encode(const T& rhs, std::stringstream& stream){
   if (std::isnan(rhs)) {
     stream << ".nan";
@@ -163,27 +121,15 @@ inner_encode(const T& rhs, std::stringstream& stream){
   }
 }
 
-#if __cplusplus < 202002L
 template <typename T>
 typename std::enable_if<!std::is_floating_point<T>::value, void>::type
-#else
-// not ambiguous since C++ will prefer "more specialized" types
-template <OutputStreamable T>
-void
-#endif
 inner_encode(const T& rhs, std::stringstream& stream){
   stream << rhs;
 }
 
-#if __cplusplus < 202002L
 template <typename T>
 typename std::enable_if<(std::is_same<T, unsigned char>::value ||
                          std::is_same<T, signed char>::value), bool>::type
-#else
-template <typename T>
-requires (std::same_as<T, signed char> || std::same_as<T, unsigned char>)
-bool
-#endif
 ConvertStreamTo(std::stringstream& stream, T& rhs) {
   int num;
   if ((stream >> std::noskipws >> num) && (stream >> std::ws).eof()) {
@@ -196,14 +142,9 @@ ConvertStreamTo(std::stringstream& stream, T& rhs) {
   return false;
 }
 
-#if __cplusplus < 202002L
 template <typename T>
 typename std::enable_if<!(std::is_same<T, unsigned char>::value ||
                           std::is_same<T, signed char>::value), bool>::type
-#else
-template <InputStreamable T>
-bool
-#endif
 ConvertStreamTo(std::stringstream& stream, T& rhs) {
   if ((stream >> std::noskipws >> rhs) && (stream >> std::ws).eof()) {
     return true;
@@ -212,7 +153,6 @@ ConvertStreamTo(std::stringstream& stream, T& rhs) {
 }
 }
 
-#if __cplusplus <= 202002L
 #define YAML_DEFINE_CONVERT_STREAMABLE(type, negative_op)                  \
   template <>                                                              \
   struct convert<type> {                                                   \
@@ -292,26 +232,13 @@ struct convert<T> {
   static Node encode(const T& rhs) {
     return Node(std::to_string(rhs));
   }
-
-  static Expected<void> expect(const Node& node, T& rhs) {
-    if (node.Type() != NodeType::Scalar) {
-      return Unexpected(node, ErrorMsg::NOT_AN_INTEGER);
-    }
-    std::stringstream stream(node.Scalar());
-    if (std::is_unsigned_v<T> && (stream.peek() == '-')) {
-      return Unexpected(node, ErrorMsg::NOT_NON_NEGATIVE);
-    }
-    if (conversion::ConvertStreamTo(stream, rhs)) {
-      return {};
-    }
-    return Unexpected(node, ErrorMsg::BAD_CONVERSION);
-  }
-
   static bool decode(const Node& node, T& rhs) {
-    auto result = convert<T>::expect(node, rhs);
+    expect<T> read;
+    auto result = read(node);
     if (not result) {
       throw result.error();
     }
+    rhs = *result;
     return true;
   }
 };
@@ -325,42 +252,13 @@ struct convert<T> {
     conversion::inner_encode(rhs, stream);
     return Node(stream.str());
   }
-
-  static Expected<void> expect(const Node& node, T& rhs) {
-    if (node.Type() != NodeType::Scalar) {
-      return Unexpected(node, ErrorMsg::NOT_A_FLOAT);
-    }
-    const std::string& input = node.Scalar();
-    std::stringstream stream(input);
-    stream.unsetf(std::ios::dec);
-    if (conversion::ConvertStreamTo(stream, rhs)) {
-      return {};
-    }
-    if (std::numeric_limits<T>::has_infinity) {
-      if (conversion::IsInfinity(input)) {
-        rhs = std::numeric_limits<T>::infinity();
-        return {};
-      } else if (conversion::IsNegativeInfinity(input)) {
-        rhs = -std::numeric_limits<T>::infinity();
-        return {};
-      }
-    }
-
-    if (std::numeric_limits<T>::has_quiet_NaN) {
-      if (conversion::IsNaN(input)) {
-        rhs = std::numeric_limits<T>::quiet_NaN();
-        return {};
-      }
-    }
-
-    return Unexpected(node, ErrorMsg::BAD_CONVERSION);
-  }
-
   static bool decode(const Node& node, T& rhs) {
-    auto result = convert<T>::expect(node, rhs);
+    expect<T> read;
+    auto result = read(node);
     if (not result) {
       throw result.error();
     }
+    rhs = *result;
     return true;
   }
 };
@@ -372,9 +270,6 @@ struct convert<bool> {
   static Node encode(bool rhs) { return rhs ? Node("true") : Node("false"); }
 
   YAML_CPP_API static bool decode(const Node& node, bool& rhs);
-#if __cplusplus > 202002L
-  YAML_CPP_API static Expected<void> expect(const Node& node, bool& rhs);
-#endif
 };
 
 // std::map
