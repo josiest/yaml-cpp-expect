@@ -9,6 +9,8 @@
 
 #if __cplusplus > 202002L
 #include <expected>
+#include <ranges>
+#include <iterator>
 #include "yaml-cpp/exceptions.h"
 #endif
 
@@ -153,6 +155,17 @@ YAML_CPP_API Node Clone(const Node& node);
 
 template <typename T>
 struct convert;
+
+#if __cplusplus > 202002L
+template <typename T>
+struct encode;
+
+template <typename T>
+struct decode;
+
+template <typename T>
+struct expect;
+#endif
 }
 
 #endif  // NODE_NODE_H_62B23520_7C8E_11DE_8A39_0800200C9A66

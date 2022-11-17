@@ -37,7 +37,7 @@ struct convert;
 }  // namespace YAML
 
 namespace YAML {
-#if __cplusplus < 202002L
+#if __cplusplus <= 202002L
 namespace conversion {
 inline bool IsInfinity(const std::string& input) {
   return input == ".inf" || input == ".Inf" || input == ".INF" ||
@@ -103,7 +103,7 @@ struct convert<_Null> {
   }
 };
 
-#if __cplusplus < 202002L
+#if __cplusplus <= 202002L
 namespace conversion {
 template <typename T>
 typename std::enable_if< std::is_floating_point<T>::value, void>::type
@@ -296,15 +296,6 @@ struct convert<std::map<K, V, C, A>> {
 #endif
     return true;
   }
-#if __cplusplus > 202002L
-  static Expected<void> expect(const Node& node, std::map<K, V, C, A>& rhs) {
-    if (!node.IsMap())
-      return Unexpected(node, ErrorMsg::NOT_A_MAP);
-    if (!decode(node, rhs))
-      return Unexpected(node, ErrorMsg::BAD_CONVERSION);
-    return {};
-  }
-#endif
 };
 
 // std::unordered_map
@@ -331,16 +322,6 @@ struct convert<std::unordered_map<K, V, H, P, A>> {
 #endif
     return true;
   }
-#if __cplusplus > 202002L
-  static Expected<void> expect(const Node& node,
-                               std::unordered_map<K, V, H, P, A>& rhs) {
-    if (!node.IsMap())
-      return Unexpected(node, ErrorMsg::NOT_A_MAP);
-    if (!decode(node, rhs))
-      return Unexpected(node, ErrorMsg::BAD_CONVERSION);
-    return {};
-  }
-#endif
 };
 
 // std::vector
@@ -367,15 +348,6 @@ struct convert<std::vector<T, A>> {
 #endif
     return true;
   }
-#if __cplusplus > 202002L
-  static Expected<void> expect(const Node& node, std::vector<T, A>& rhs) {
-    if (!node.IsSequence())
-      return Unexpected(node, ErrorMsg::NOT_A_SEQUENCE);
-    if (!decode(node, rhs))
-      return Unexpected(node, ErrorMsg::BAD_CONVERSION);
-    return {};
-  }
-#endif
 };
 
 // std::list
@@ -402,15 +374,6 @@ struct convert<std::list<T,A>> {
 #endif
     return true;
   }
-#if __cplusplus > 202002L
-  static Expected<void> expect(const Node& node, std::list<T, A>& rhs) {
-    if (!node.IsSequence())
-      return Unexpected(node, ErrorMsg::NOT_A_SEQUENCE);
-    if (!decode(node, rhs))
-      return Unexpected(node, ErrorMsg::BAD_CONVERSION);
-    return {};
-  }
-#endif
 };
 
 // std::array
@@ -439,15 +402,6 @@ struct convert<std::array<T, N>> {
     }
     return true;
   }
-#if __cplusplus > 202002L
-  static Expected<void> expect(const Node& node, std::array<T, N>& rhs) {
-    if (!node.IsSequence())
-      return Unexpected(node, ErrorMsg::NOT_A_SEQUENCE);
-    if (!decode(node, rhs))
-      return Unexpected(node, ErrorMsg::BAD_CONVERSION);
-    return {};
-  }
-#endif
 
  private:
   static bool isNodeValid(const Node& node) {
@@ -483,15 +437,6 @@ struct convert<std::valarray<T>> {
     }
     return true;
   }
-#if __cplusplus > 202002L
-  static Expected<void> expect(const Node& node, std::valarray<T>& rhs) {
-    if (!node.IsSequence())
-      return Unexpected(node, ErrorMsg::NOT_A_SEQUENCE);
-    if (!decode(node, rhs))
-      return Unexpected(node, ErrorMsg::BAD_CONVERSION);
-    return {};
-  }
-#endif
 };
 
 
@@ -525,15 +470,6 @@ struct convert<std::pair<T, U>> {
 #endif
     return true;
   }
-#if __cplusplus > 202002L
-  static Expected<void> expect(const Node& node, std::pair<T, U>& rhs) {
-    if (!node.IsSequence() || node.size() != 2)
-      return Unexpected(node, ErrorMsg::NOT_A_PAIR);
-    if (!decode(node, rhs))
-      return Unexpected(node, ErrorMsg::BAD_CONVERSION);
-    return {};
-  }
-#endif
 };
 
 // binary
@@ -554,13 +490,6 @@ struct convert<Binary> {
     rhs.swap(data);
     return true;
   }
-#if __cplusplus > 202002L
-  static Expected<void> expect(const Node& node, Binary& rhs) {
-    if (!decode(node, rhs))
-      return std::unexpected(Exception(node.Mark(), ErrorMsg::BAD_CONVERSION));
-    return {};
-  }
-#endif
 };
 }
 

@@ -104,6 +104,7 @@ const char* const NOT_A_STRING = "expecting a string";
 const char* const NOT_A_PAIR = "expecting a sequence of exactly two values";
 const char* const NOT_A_SEQUENCE = "expecting a sequence";
 const char* const NOT_A_MAP = "expecting a map";
+const char* const NOT_A_CONTAINER = "expecting a map or a sequence";
 
 template <typename T>
 inline const std::string KEY_NOT_FOUND_WITH_KEY(

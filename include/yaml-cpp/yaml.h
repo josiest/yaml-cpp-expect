@@ -21,4 +21,9 @@
 #include "yaml-cpp/node/parse.h"
 #include "yaml-cpp/node/emit.h"
 
+#if __cplusplus > 202002L
+#include "yaml-cpp/node/conversion.h"
+#include "yaml-cpp/node/expect.h"
+#endif
+
 #endif  // YAML_H_62B23520_7C8E_11DE_8A39_0800200C9A66
