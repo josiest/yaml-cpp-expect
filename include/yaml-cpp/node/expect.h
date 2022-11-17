@@ -110,11 +110,11 @@ concept ExpectedLike = requires(const R& result) {
   { result.error() } -> std::convertible_to<E>;
 };
 
-template<typename T>
-concept Expectable = requires(const expect<T>& expect_value, const Node& node) {
-  { expect_value(node) } -> ExpectedLike<T, Exception>;
-  { expect_value(node).error() } -> std::convertible_to<Exception>;
-  { *expect_value(node) } -> std::convertible_to<T>;
+template<typename T, typename N = Node>
+concept Expectable = requires(const expect<T>& expect_fn, const N& node) {
+  { expect_fn(node) } -> ExpectedLike<T, Exception>;
+  { expect_fn(node).error() } -> std::convertible_to<Exception>;
+  { *expect_fn(node) } -> std::convertible_to<T>;
 };
 
 template<typename T>
@@ -155,12 +155,7 @@ struct expect<Pair> {
 };
 
 template<typename T>
-concept PairExpectable = PairLike<T> and
-requires(const expect<T>& expect_value, const std::pair<Node, Node>& pair) {
-  { expect_value(pair) } -> ExpectedLike<T, Exception>;
-  { expect_value(pair).error() } -> std::convertible_to<Exception>;
-  { *expect_value(pair) } -> std::convertible_to<T>;
-};
+concept PairExpectable = PairLike<T> and Expectable<T, std::pair<Node, Node>>;
 
 template<typename T>
 concept ContainerExpectable = Expectable<T> or PairExpectable<T>;
