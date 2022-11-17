@@ -76,8 +76,12 @@ class YAML_CPP_API Node {
   const std::string& Scalar() const;
 
 #if __cplusplus > 202002L
-  template <typename T>
-  std::expected<T, Exception> expect() const noexcept;
+  template <typename T, typename E = Exception>
+  inline std::expected<T, E> expect() const noexcept;
+
+  template <typename T, typename E, std::weakly_incrementable O>
+  requires std::indirectly_writable<O, E>
+  inline T expect(O errors) const noexcept;
 #endif
 
   const std::string& Tag() const;
@@ -163,8 +167,12 @@ struct encode;
 template <typename T>
 struct decode;
 
-template <typename T>
+template <typename T, typename E>
 struct expect;
+
+template <typename T, typename E, std::weakly_incrementable O>
+requires std::indirectly_writable<O, E>
+struct expect_default;
 #endif
 }
 

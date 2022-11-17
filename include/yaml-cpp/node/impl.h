@@ -153,8 +153,25 @@ struct as_if<std::string, void> {
 };
 
 #if __cplusplus > 202002L
-template <typename T>
+template <typename T, typename E>
 struct expect_if {
+  explicit expect_if(const Node& node_) : node(node_) {}
+  const Node& node;
+
+  std::expected<T, E> operator()() const noexcept {
+    const expect<T, E> read;
+    return read(node);
+  }
+
+  template<std::weakly_incrementable O>
+  requires std::indirectly_writable<O, E>
+  T operator()(O errors) const noexcept {
+    const expect_default<T, E, O> read;
+    return read(node, errors);
+  }
+};
+template <typename T>
+struct expect_if<T, Exception> {
   explicit expect_if(const Node& node_) : node(node_) {}
   const Node& node;
 
@@ -162,7 +179,7 @@ struct expect_if {
     if (!node.IsDefined()) {
       return Unexpected(node, ErrorMsg::INVALID_NODE);
     }
-    const expect<T> read;
+    const expect<T, Exception> read;
     return read(node);
   }
 };
@@ -184,12 +201,15 @@ inline T Node::as(const S& fallback) const {
 }
 
 #if __cplusplus > 202002L
-template <typename T>
-inline std::expected<T, Exception> Node::expect() const noexcept {
-  if (!m_isValid) {
-    return Unexpected(Mark(), ErrorMsg::INVALID_NODE_WITH_KEY(m_invalidKey));
-  }
-  return expect_if<T>(*this)();
+template <typename T, typename E>
+inline std::expected<T, E> Node::expect() const noexcept {
+  return expect_if<T, E>(*this)();
+}
+
+template<typename T, typename E, std::weakly_incrementable O>
+requires std::indirectly_writable<O, E>
+inline T Node::expect(O errors) const noexcept {
+  return expect_if<T, E>(*this)(errors);
 }
 #endif
 

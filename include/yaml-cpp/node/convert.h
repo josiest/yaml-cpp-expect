@@ -233,7 +233,7 @@ struct convert<T> {
     return Node(std::to_string(rhs));
   }
   static bool decode(const Node& node, T& rhs) {
-    expect<T> read;
+    expect<T, Exception> read;
     auto result = read(node);
     if (not result) {
       throw result.error();
@@ -253,7 +253,7 @@ struct convert<T> {
     return Node(stream.str());
   }
   static bool decode(const Node& node, T& rhs) {
-    expect<T> read;
+    expect<T, Exception> read;
     auto result = read(node);
     if (not result) {
       throw result.error();

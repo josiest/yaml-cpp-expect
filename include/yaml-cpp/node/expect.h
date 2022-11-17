@@ -11,18 +11,16 @@
 #include <utility>
 
 namespace YAML {
-template<typename T>
-struct expect;
 
 template<>
-struct expect<Node> {
+struct expect<Node, Exception> {
   Expected<Node> operator()(const Node& node) const noexcept {
     return node;
   }
 };
 
 template<>
-struct expect<std::string> {
+struct expect<std::string, Exception> {
   Expected<std::string> operator()(const Node& node) const noexcept {
     if (!node.IsScalar()) {
       return Unexpected(node, ErrorMsg::NOT_A_STRING);
@@ -32,7 +30,7 @@ struct expect<std::string> {
 };
 
 template<>
-struct expect<_Null> {
+struct expect<_Null, Exception> {
   Expected<void> operator()(const Node& node) const noexcept {
     if (!node.IsNull()) {
       return Unexpected(node.Mark(), ErrorMsg::NOT_NULL);
@@ -43,7 +41,7 @@ struct expect<_Null> {
 
 template<std::integral T>
 requires (!std::same_as<T, bool>)
-struct expect<T> {
+struct expect<T, Exception> {
   Expected<T> operator()(const Node& node) const noexcept {
     if (node.Type() != NodeType::Scalar) {
       return Unexpected(node, ErrorMsg::NOT_AN_INTEGER);
@@ -56,12 +54,12 @@ struct expect<T> {
     if (conversion::ConvertStreamTo(stream, rhs)) {
       return rhs;
     }
-    return Unexpected(node, ErrorMsg::BAD_CONVERSION);
+    return Unexpected(node, ErrorMsg::NOT_AN_INTEGER);
   }
 };
 
 template<std::floating_point T>
-struct expect<T> {
+struct expect<T, Exception> {
   Expected<void> operator()(const Node& node) const noexcept {
     if (node.Type() != NodeType::Scalar) {
       return Unexpected(node, ErrorMsg::NOT_A_FLOAT);
@@ -88,12 +86,12 @@ struct expect<T> {
         return rhs;
       }
     }
-    return Unexpected(node, ErrorMsg::BAD_CONVERSION);
+    return Unexpected(node, ErrorMsg::NOT_A_FLOAT);
   }
 };
 
 template<>
-struct expect<bool> {
+struct expect<bool, Exception> {
   YAML_CPP_API Expected<bool> operator()(const Node& node) const noexcept;
 };
 
@@ -110,10 +108,10 @@ concept ExpectedLike = requires(const R& result) {
   { result.error() } -> std::convertible_to<E>;
 };
 
-template<typename T, typename N = Node>
-concept Expectable = requires(const expect<T>& expect_fn, const N& node) {
-  { expect_fn(node) } -> ExpectedLike<T, Exception>;
-  { expect_fn(node).error() } -> std::convertible_to<Exception>;
+template<typename T, typename E, typename N = Node>
+concept Expectable = requires(const expect<T, E>& expect_fn, const N& node) {
+  { expect_fn(node) } -> ExpectedLike<T, E>;
+  { expect_fn(node).error() } -> std::convertible_to<E>;
   { *expect_fn(node) } -> std::convertible_to<T>;
 };
 
@@ -136,9 +134,9 @@ requires(T t) {
 };
 
 template<PairLike Pair>
-requires Expectable<tuple_first_t<Pair>> &&
-         Expectable<tuple_second_t<Pair>>
-struct expect<Pair> {
+requires Expectable<tuple_first_t<Pair>, Exception> &&
+         Expectable<tuple_second_t<Pair>, Exception>
+struct expect<Pair, Exception> {
   Expected<Pair> operator()(const std::pair<Node, Node>& node) const noexcept
   {
     auto const&[first_node, second_node] = node;
@@ -155,10 +153,11 @@ struct expect<Pair> {
 };
 
 template<typename T>
-concept PairExpectable = PairLike<T> and Expectable<T, std::pair<Node, Node>>;
+concept PairExpectable = PairLike<T> and
+                         Expectable<T, Exception, std::pair<Node, Node>>;
 
 template<typename T>
-concept ContainerExpectable = Expectable<T> or PairExpectable<T>;
+concept ContainerExpectable = Expectable<T, Exception> or PairExpectable<T>;
 
 template <ContainerExpectable T,
           std::weakly_incrementable ValueOutput,
@@ -179,7 +178,7 @@ partition_expect(const Node& node, ValueOutput values,
     *errors++ = Exception(node.Mark(), ErrorMsg::NOT_A_CONTAINER);
     return std::make_pair(values, errors);
   }
-  const expect<T> read_value;
+  const expect<T, Exception> read_value;
   for (auto && result : node | views::transform(read_value)) {
     if (!result) {
       *errors++ = std::move(result).error();
