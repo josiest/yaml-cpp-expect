@@ -82,6 +82,10 @@ class YAML_CPP_API Node {
   template <typename T, typename E, std::weakly_incrementable O>
   requires std::indirectly_writable<O, E>
   inline T expect(O errors) const noexcept;
+
+  template <typename E = Exception, typename T, std::weakly_incrementable O>
+  requires std::indirectly_writable<O, E>
+  inline O expect(T& t, O errors) const noexcept;
 #endif
 
   const std::string& Tag() const;

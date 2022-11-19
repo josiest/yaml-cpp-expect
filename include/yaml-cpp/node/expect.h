@@ -95,6 +95,20 @@ struct expect<bool, Exception> {
   YAML_CPP_API Expected<bool> operator()(const Node& node) const noexcept;
 };
 
+template<typename T, typename E, std::weakly_incrementable O>
+requires std::indirectly_writable<O, E>
+struct expect_default{
+  O operator()(const Node& node, T& t, O errors) const noexcept {
+    const auto result = node.expect<T, E>();
+    if (not result) {
+      *errors++ = result.error();
+      return errors;
+    }
+    t = *result;
+    return errors;
+  }
+};
+
 template<typename T>
 using expected_error_t = typename T::error_type;
 

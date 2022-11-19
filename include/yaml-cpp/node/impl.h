@@ -165,9 +165,9 @@ struct expect_if {
 
   template<std::weakly_incrementable O>
   requires std::indirectly_writable<O, E>
-  T operator()(O errors) const noexcept {
+  O operator()(T& t, O errors) const noexcept {
     const expect_default<T, E, O> read;
-    return read(node, errors);
+    return read(node, t, errors);
   }
 };
 template <typename T>
@@ -182,6 +182,18 @@ struct expect_if<T, Exception> {
     const expect<T, Exception> read;
     return read(node);
   }
+
+  template<std::weakly_incrementable O>
+  requires std::indirectly_writable<O, Exception>
+  O operator()(T& t, O errors) const noexcept {
+    if (!node.IsDefined()) {
+      *errors++ = Exception(node.Mark(), ErrorMsg::INVALID_NODE);
+      return errors;
+    }
+    const expect_default<T, Exception, O> read;
+    return read(node, t, errors);
+  }
+
 };
 #endif
 
@@ -209,7 +221,16 @@ inline std::expected<T, E> Node::expect() const noexcept {
 template<typename T, typename E, std::weakly_incrementable O>
 requires std::indirectly_writable<O, E>
 inline T Node::expect(O errors) const noexcept {
-  return expect_if<T, E>(*this)(errors);
+  T t;
+  expect_if<T, E>(*this)(t, errors);
+  return t;
+}
+
+template<typename E, typename T, std::weakly_incrementable O>
+requires std::indirectly_writable<O, E>
+inline O Node::expect(T& t, O errors) const noexcept {
+  errors = expect_if<T, E>(*this)(t, errors);
+  return errors;
 }
 #endif
 
