@@ -23,7 +23,7 @@ template<>
 struct expect<std::string, Exception> {
   Expected<std::string> operator()(const Node& node) const noexcept {
     if (!node.IsScalar()) {
-      return Unexpected(node, ErrorMsg::NOT_A_STRING);
+      return Unexpected(node.Mark(), ErrorMsg::NOT_A_STRING);
     }
     return node.Scalar();
   }
@@ -44,17 +44,17 @@ requires (!std::same_as<T, bool>)
 struct expect<T, Exception> {
   Expected<T> operator()(const Node& node) const noexcept {
     if (node.Type() != NodeType::Scalar) {
-      return Unexpected(node, ErrorMsg::NOT_AN_INTEGER);
+      return Unexpected(node.Mark(), ErrorMsg::NOT_AN_INTEGER);
     }
     std::stringstream stream(node.Scalar());
     if (std::is_unsigned_v<T> && (stream.peek() == '-')) {
-      return Unexpected(node, ErrorMsg::NOT_NON_NEGATIVE);
+      return Unexpected(node.Mark(), ErrorMsg::NOT_NON_NEGATIVE);
     }
     T rhs;
     if (conversion::ConvertStreamTo(stream, rhs)) {
       return rhs;
     }
-    return Unexpected(node, ErrorMsg::NOT_AN_INTEGER);
+    return Unexpected(node.Mark(), ErrorMsg::NOT_AN_INTEGER);
   }
 };
 
@@ -62,7 +62,7 @@ template<std::floating_point T>
 struct expect<T, Exception> {
   Expected<void> operator()(const Node& node) const noexcept {
     if (node.Type() != NodeType::Scalar) {
-      return Unexpected(node, ErrorMsg::NOT_A_FLOAT);
+      return Unexpected(node.Mark(), ErrorMsg::NOT_A_FLOAT);
     }
     const std::string& input = node.Scalar();
     std::stringstream stream(input);
@@ -86,7 +86,7 @@ struct expect<T, Exception> {
         return rhs;
       }
     }
-    return Unexpected(node, ErrorMsg::NOT_A_FLOAT);
+    return Unexpected(node.Mark(), ErrorMsg::NOT_A_FLOAT);
   }
 };
 
@@ -122,11 +122,12 @@ concept ExpectedLike = requires(const R& result) {
   { result.error() } -> std::convertible_to<E>;
 };
 
-template<typename T, typename E, typename N = Node>
-concept Expectable = requires(const expect<T, E>& expect_fn, const N& node) {
-  { expect_fn(node) } -> ExpectedLike<T, E>;
-  { expect_fn(node).error() } -> std::convertible_to<E>;
-  { *expect_fn(node) } -> std::convertible_to<T>;
+template<typename ValueType, typename ErrorType, typename NodeType = Node>
+concept Expectable = requires(const expect<ValueType, ErrorType>& expect_fn,
+                              const NodeType& node) {
+  { expect_fn(node) } -> ExpectedLike<ValueType, ErrorType>;
+  { expect_fn(node).error() } -> std::convertible_to<ErrorType>;
+  { *expect_fn(node) } -> std::convertible_to<ValueType>;
 };
 
 template<typename T>

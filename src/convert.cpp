@@ -79,10 +79,10 @@ template<>
 Expected<bool> expect<bool>::operator()(const Node& node) const noexcept
 {
   if (!node.IsScalar()) {
-    return Unexpected(node, ErrorMsg::NOT_A_BOOL);
+    return Unexpected(node.Mark(), ErrorMsg::NOT_A_BOOL);
   }
   if (!isFlexibleCase(node.Scalar())) {
-    return Unexpected(node, ErrorMsg::NOT_FLEXIBLE_BOOL);
+    return Unexpected(node.Mark(), ErrorMsg::NOT_FLEXIBLE_BOOL);
   }
   const std::string lower = tolower(node.Scalar());
   auto is_match = [&lower](auto const & str) {
@@ -94,7 +94,7 @@ Expected<bool> expect<bool>::operator()(const Node& node) const noexcept
   if (std::ranges::any_of(std::array{"n", "no", "false", "off"}, is_match)) {
       return false;
   }
-  return Unexpected(node, ErrorMsg::NOT_A_BOOL);
+  return Unexpected(node.Mark(), ErrorMsg::NOT_A_BOOL);
 }
 #endif
 }  // namespace YAML

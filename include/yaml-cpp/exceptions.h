@@ -320,10 +320,10 @@ class YAML_CPP_API BadFile : public Exception {
 #if __cplusplus > 202002L
 template<typename T>
 using Expected = std::expected<T, Exception>;
-std::unexpected<Exception>
-Unexpected(const Mark& mark, const std::string& msg);
-std::unexpected<Exception>
-Unexpected(const Node& node, const std::string& msg);
+inline std::unexpected<Exception>
+Unexpected(const Mark& mark, const std::string& msg) {
+  return std::unexpected(Exception(mark, msg));
+}
 #endif
 }  // namespace YAML
 

@@ -17,6 +17,7 @@
 
 #if __cplusplus > 202002L
 #include "yaml-cpp/node/expect.h"
+#include <iterator>
 #endif
 
 namespace YAML {
@@ -152,51 +153,6 @@ struct as_if<std::string, void> {
   }
 };
 
-#if __cplusplus > 202002L
-template <typename T, typename E>
-struct expect_if {
-  explicit expect_if(const Node& node_) : node(node_) {}
-  const Node& node;
-
-  std::expected<T, E> operator()() const noexcept {
-    const expect<T, E> read;
-    return read(node);
-  }
-
-  template<std::weakly_incrementable O>
-  requires std::indirectly_writable<O, E>
-  O operator()(T& t, O errors) const noexcept {
-    const expect_default<T, E, O> read;
-    return read(node, t, errors);
-  }
-};
-template <typename T>
-struct expect_if<T, Exception> {
-  explicit expect_if(const Node& node_) : node(node_) {}
-  const Node& node;
-
-  std::expected<T, Exception> operator()() const noexcept {
-    if (!node.IsDefined()) {
-      return Unexpected(node, ErrorMsg::INVALID_NODE);
-    }
-    const expect<T, Exception> read;
-    return read(node);
-  }
-
-  template<std::weakly_incrementable O>
-  requires std::indirectly_writable<O, Exception>
-  O operator()(T& t, O errors) const noexcept {
-    if (!node.IsDefined()) {
-      *errors++ = Exception(node.Mark(), ErrorMsg::INVALID_NODE);
-      return errors;
-    }
-    const expect_default<T, Exception, O> read;
-    return read(node, t, errors);
-  }
-
-};
-#endif
-
 // access functions
 template <typename T>
 inline T Node::as() const {
@@ -213,24 +169,20 @@ inline T Node::as(const S& fallback) const {
 }
 
 #if __cplusplus > 202002L
-template <typename T, typename E>
-inline std::expected<T, E> Node::expect() const noexcept {
-  return expect_if<T, E>(*this)();
+template <typename ValueType, typename ErrorType>
+inline std::expected<ValueType, ErrorType> Node::expect() const noexcept {
+  YAML::expect<ValueType, ErrorType> read_value;
+  return read_value(*this);
 }
 
-template<typename T, typename E, std::weakly_incrementable O>
-requires std::indirectly_writable<O, E>
-inline T Node::expect(O errors) const noexcept {
-  T t;
-  expect_if<T, E>(*this)(t, errors);
-  return t;
-}
+template<typename ValueType, typename ErrorType,
+         std::weakly_incrementable ErrorOutput>
+requires std::indirectly_writable<ErrorOutput, ErrorType>
 
-template<typename E, typename T, std::weakly_incrementable O>
-requires std::indirectly_writable<O, E>
-inline O Node::expect(T& t, O errors) const noexcept {
-  errors = expect_if<T, E>(*this)(t, errors);
-  return errors;
+inline ErrorOutput
+Node::expect(ValueType& value, ErrorOutput errors) const noexcept {
+  expect_default<ValueType, ErrorType, ErrorOutput> read_value;
+  return read_value(*this, value, errors);
 }
 #endif
 
